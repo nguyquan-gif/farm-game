@@ -1,0 +1,54 @@
+name: Android alpha
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: android-alpha-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - name: Install Android 36 tooling
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "build-tools;35.0.0"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - name: Mobile browser checks
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:ui
+      - run: npm run android:debug
+      - name: Package debug APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk GreenValleyFarm-v0.1.0-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GreenValleyFarm-v0.1.0-debug
+          path: GreenValleyFarm-v0.1.0-debug.apk
+          if-no-files-found: error
+      - name: Create Android alpha release once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.1.0-android-alpha >/dev/null 2>&1; then
+            echo "Release already exists; the current APK is available as a workflow artifact."
+          else
+            gh release create v0.1.0-android-alpha GreenValleyFarm-v0.1.0-debug.apk \
+              --target "$GITHUB_SHA" --prerelease \
+              --title "Green Valley Farm Android Alpha" \
+              --notes-file docs/ANDROID_RELEASE_NOTES.md
+          fi

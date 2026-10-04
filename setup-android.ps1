@@ -1,59 +1,17 @@
-Write-Host "Bắt đầu cài đặt môi trường Android..."
-
-# 1. Tải và Cài đặt JDK 17
-Write-Host "1/4. Đang cài đặt Microsoft OpenJDK 17..."
-winget install --id Microsoft.OpenJDK.17 --silent --accept-package-agreements --accept-source-agreements
-
-# Cập nhật biến môi trường JAVA_HOME
-$jdkPath = "C:\Program Files\Microsoft\jdk-17*"
-$javaPaths = Resolve-Path $jdkPath -ErrorAction SilentlyContinue
-if ($javaPaths) {
-    $javaPath = $javaPaths[0].Path
-    [Environment]::SetEnvironmentVariable("JAVA_HOME", $javaPath, "User")
-    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    if ($userPath -notmatch "jdk-17") {
-        [Environment]::SetEnvironmentVariable("Path", "$userPath;$javaPath\bin", "User")
-    }
-    Write-Host "Đã cấu hình JAVA_HOME: $javaPath"
-} else {
-    Write-Host "Cảnh báo: Không tìm thấy đường dẫn JDK. Có thể cần kiểm tra lại."
+# Kiểm tra phiên hiện tại. Không tải/cài âm thầm hoặc thay biến môi trường hệ thống.
+$ErrorActionPreference = "Stop"
+Write-Host "Green Valley Farm cần Node.js 22.12+, JDK 21, Android SDK API 36."
+Write-Host "Hướng dẫn đầy đủ: docs/BUILD_ANDROID.md"
+node -v
+java -version
+if (-not $env:ANDROID_HOME) {
+    Write-Host "Chưa đặt ANDROID_HOME. SDK mặc định thường ở $env:LOCALAPPDATA\Android\Sdk"
+    exit 1
 }
-
-# 2. Tải Android SDK Command Line Tools
-Write-Host "2/4. Đang tải Android SDK Command Line Tools..."
-$sdkDir = "C:\AndroidSDK"
-$cmdlineToolsDir = "$sdkDir\cmdline-tools\latest"
-
-if (-not (Test-Path $sdkDir)) { New-Item -ItemType Directory -Force -Path $sdkDir | Out-Null }
-
-$zipPath = "$sdkDir\cmdline-tools.zip"
-# Link tải bộ tools mới nhất cho Windows
-Invoke-WebRequest -Uri "https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip" -OutFile $zipPath
-
-Write-Host "3/4. Đang giải nén Android SDK..."
-Expand-Archive -Path $zipPath -DestinationPath $sdkDir -Force
-Rename-Item -Path "$sdkDir\cmdline-tools" -NewName "latest"
-New-Item -ItemType Directory -Force -Path "$sdkDir\cmdline-tools" | Out-Null
-Move-Item -Path "$sdkDir\latest" -Destination "$sdkDir\cmdline-tools\"
-
-# Cập nhật biến môi trường ANDROID_HOME
-[Environment]::SetEnvironmentVariable("ANDROID_HOME", $sdkDir, "User")
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if ($userPath -notmatch "AndroidSDK") {
-    [Environment]::SetEnvironmentVariable("Path", "$userPath;$sdkDir\cmdline-tools\latest\bin;$sdkDir\platform-tools", "User")
+$sdkManager = Join-Path $env:ANDROID_HOME "cmdline-tools\latest\bin\sdkmanager.bat"
+if (-not (Test-Path $sdkManager)) {
+    Write-Host "Thiếu SDK Command-line Tools (latest). Cài trong Android Studio SDK Manager."
+    exit 1
 }
-
-# 4. Chấp nhận điều khoản và cài đặt SDK & Build Tools
-Write-Host "4/4. Đang tải các gói Android platforms và build-tools..."
-$env:JAVA_HOME = $javaPath
-$env:ANDROID_HOME = $sdkDir
-
-# Tự động đồng ý license
-$yes = "y`n" * 20
-$yes | & "$cmdlineToolsDir\bin\sdkmanager.bat" --licenses | Out-Null
-
-& "$cmdlineToolsDir\bin\sdkmanager.bat" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-
-Write-Host "----------------------------------------"
-Write-Host "HOÀN TẤT CÀI ĐẶT JAVA VÀ ANDROID SDK!"
-Write-Host "Bạn có thể cần khởi động lại ứng dụng hoặc terminal để nhận biến môi trường."
+& $sdkManager --list_installed
+Write-Host "Sau khi kiểm tra Java 21/API 36: npm run android:debug"
