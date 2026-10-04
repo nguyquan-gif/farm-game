@@ -1,4 +1,4 @@
-package com.greenvalley.farm;
+package com.nguyquan.farmgame;
 
 import com.getcapacitor.BridgeActivity;
 

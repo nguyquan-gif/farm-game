@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">Green Valley Farm</string>
     <string name="title_activity_main">Green Valley Farm</string>
-    <string name="package_name">com.greenvalley.farm</string>
-    <string name="custom_url_scheme">com.greenvalley.farm</string>
+    <string name="package_name">com.nguyquan.farmgame</string>
+    <string name="custom_url_scheme">com.nguyquan.farmgame</string>
 </resources>

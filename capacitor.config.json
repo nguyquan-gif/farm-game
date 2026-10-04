@@ -1,13 +1,17 @@
 {
-  "appId": "com.greenvalley.farm",
+  "appId": "com.nguyquan.farmgame",
   "appName": "Green Valley Farm",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
   },
+  "android": {
+    "backgroundColor": "#faf6e9"
+  },
   "plugins": {
-    "SplashScreen": {
-      "launchShowDuration": 0
+    "SystemBars": {
+      "style": "LIGHT",
+      "insetsHandling": "css"
     }
   }
 }
