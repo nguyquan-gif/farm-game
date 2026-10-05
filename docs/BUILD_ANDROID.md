@@ -105,17 +105,19 @@ Hoặc gửi APK sang điện thoại, mở file, cho phép **Install unknown ap
 
 Workflow `.github/workflows/android-alpha.yml` chạy khi push `main` hoặc **Actions → Android alpha → Run workflow**. Nó tự kiểm tra web/UI, build Android trên JDK 21 + SDK 36, upload artifact và tạo prerelease một lần:
 
-- Tag: `v0.1.0-android-alpha`
-- Title: `Green Valley Farm Android Alpha`
-- Asset: `GreenValleyFarm-v0.1.0-debug.apk`
+- Tag: `v0.2.0-android-alpha`
+- Title: `Green Valley Farm 0.2 — Mùa hội trở về`
+- Asset: `GreenValleyFarm-v0.2.0-debug.apk`
 - Notes: `docs/ANDROID_RELEASE_NOTES.md`
 
 Nếu Actions bị vô hiệu hóa hoặc không có quyền release, build local rồi dùng GitHub CLI sau khi đăng nhập bằng tài khoản có quyền:
 
 ```powershell
-Copy-Item android\app\build\outputs\apk\debug\app-debug.apk GreenValleyFarm-v0.1.0-debug.apk
-gh release create v0.1.0-android-alpha GreenValleyFarm-v0.1.0-debug.apk --target main --prerelease --title "Green Valley Farm Android Alpha" --notes-file docs/ANDROID_RELEASE_NOTES.md
+Copy-Item android\app\build\outputs\apk\debug\app-debug.apk GreenValleyFarm-v0.2.0-debug.apk
+gh release create v0.2.0-android-alpha GreenValleyFarm-v0.2.0-debug.apk --target main --prerelease --title "Green Valley Farm 0.2 — Mùa hội trở về" --notes-file docs/ANDROID_RELEASE_NOTES.md
 ```
+
+Bản 0.1 dùng debug key tạm của CI, nên cài đè 0.2 có thể báo chữ ký không trùng. Nếu phải gỡ bản cũ, tiến trình sẽ mất. Các build CI debug độc lập có thể khác chữ ký. Dùng cùng máy/debug key cho bản nội bộ cần cập nhật giữ save; bản Google Play cần signing key riêng, lưu an toàn ngoài Git.
 
 Không chạy tạo tag lần nữa nếu release đã tồn tại. APK được ignore, không dùng `git add -f`.
 

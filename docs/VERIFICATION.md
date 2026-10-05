@@ -1,31 +1,34 @@
-# Kiểm tra bản alpha
+# Kiểm tra bản 0.2
 
-Baseline inspect: React 19/Vite 8, CSS thuần, App.jsx chứa state/mission/UI/audio, localStorage v4, ảnh diorama local; renderer Three.js chưa dùng; Capacitor Android cũ có app ID khác. Initial commit chứa node_modules/dist, khiến build Linux bị `vite: Permission denied`. Đã giữ nền React/Vite, artwork và Web Audio, tách game logic khỏi UI và cài dependency sạch.
+Audit và hướng sửa: [REDESIGN_0.2.md](REDESIGN_0.2.md). Hai chương được kiểm tra qua DOM/controls thật của bản production, không sửa tài nguyên/save để đi tắt.
 
-| Kiểm tra | Kết quả |
-| --- | --- |
-| npm install | Pass, lockfile được cập nhật |
-| npm run lint | Pass |
-| npm test | Pass: 9 bài test, gồm Chương 1, upgrade, timer, recovery, duplicate action, migration/reset |
-| npm run build | Pass |
-| npm run test:ui | Pass: browser Chromium, bản dist production |
-| Responsive | 360, 375, 390, 430, 768, 1024, 1440px: document và sheet không tràn ngang |
-| Chương 1 UI | Hái → sửa → cho ăn → ngày mới → nhặt trứng → giao Linh → mở chợ |
-| Vòng trồng rau UI | Gieo, tưới, sang ngày mới làm rau chín |
-| Lưu/reset UI | Reload giữ Chương 2; hủy reset giữ save; xác nhận reset về ngày 1/80 xu/5 năng lượng |
-| Navigation/sheet | Tất cả 3 tab và 5 khu vực; Escape, focus trong modal, vuốt đóng sheet |
-| Motion/runtime | prefers-reduced-motion hoạt động; không có pageerror |
-| npm run cap:sync | Pass, App + Haptics plugin được đăng ký |
-| Android source | App ID, Java package, manifest, wrapper và icon/splash tồn tại trong repo |
-| Git hygiene | Dependency/build output đã bỏ tracking; .gitignore chặn APK, .env, keystore, local.properties |
-| npm run android:debug local | Không pass: Gradle download Network is unreachable; Java 17, chưa có JDK 21/SDK 36 |
+| Kiểm tra              | Kết quả                                                                                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm install           | Pass, package/lockfile 0.2.0; không thêm runtime dependency                                                                                              |
+| npm run lint          | Pass                                                                                                                                                     |
+| npm test              | 13 bài: Chương 1 và 2, recovery từ tài nguyên 0, timer, thao tác lặp, khóa giống, tưới/tăng sản lượng, migrate v4/v5/v6, quà ngày, đơn/ngày, nâng đàn gà |
+| npm run build         | Pass; JS chính khoảng 305 KB trước gzip, không thêm renderer nặng                                                                                        |
+| npm run test:ui       | Pass: 13 cột mốc qua giao diện trong 6 ngày game, có thu hoạch trực tiếp trên bản đồ                                                                     |
+| Responsive            | 360×640, 375×812, 390×844, 430×932, 768×1024, 1024×768, 1440×900; không tràn ngang                                                                       |
+| Vùng chạm bản đồ      | Tâm mỗi nút khu vực/luống không bị HUD, nhiệm vụ hoặc công cụ che; đã sửa bể nước bị nút nghỉ che ở 360×640                                              |
+| Navigation            | Bốn tab, năm khu vực, bảng đơn và các món còn thiếu dẫn đúng nơi                                                                                         |
+| Lưu/reset             | Reload giữ đoạn kết; hủy reset giữ tiến trình; xác nhận về ngày 1/80 xu/5 energy và phần mở đầu                                                          |
+| Migration             | Save v5 giữ energy 4/5 thành 4/5, tiền, upgrade, milestones và timer; tự thêm trường mới                                                                 |
+| Accessibility/runtime | Focus giữ trong dialog, Escape, vuốt đóng, reduced motion; không có pageerror/console error                                                              |
+| npm run cap:sync      | Pass; App + Haptics plugin                                                                                                                               |
+| Android source        | versionCode 2, versionName 0.2.0, giữ app ID com.nguyquan.farmgame                                                                                       |
+| Git hygiene           | Không track node_modules, dist, APK, env, keystore, local.properties hoặc build output                                                                   |
 
-Browser kiểm tra chạy trong cùng tiến trình local server để phù hợp network isolation của môi trường. Chromium cho kiểm tra được cài riêng, không nằm trong dependency runtime hay source repo. Máy/CI thông thường dùng `npx playwright install chromium` rồi `npm run test:ui`.
+Ảnh thực tế từ browser production:
 
-![Farm 360px](screenshots/farm-360.png)
+![Ngày đầu, 360px](screenshots/v02-farm-360.webp)
 
-![Chương 1 hoàn thành](screenshots/chapter-complete-360.png)
+![Đêm hội, 360×640](screenshots/v02-festival-360.webp)
 
-Cần playtest thiết bị Android thật cho haptic, native Back và edge-to-edge. Mục tiêu thời lượng Chương 1 8–15 phút chưa được xác nhận bằng người chơi; sang ngày mới cho phép hoàn thành nhanh hơn. Không có giới hạn chờ hoặc yêu cầu mua hàng.
+![Đơn hàng, 360px](screenshots/v02-orders-360.webp)
 
-Trạng thái CI/Release xem workflow Android alpha trên GitHub. Chỉ coi APK đã phát hành khi có workflow thành công và release asset thực tế.
+Browser kiểm thử cài riêng ngoài runtime app vì CDN Playwright không tải được trong môi trường local. CI dùng Chromium tiêu chuẩn qua `npx playwright install --with-deps chromium`.
+
+Build APK local vẫn cần JDK 21 / Android SDK 36; môi trường thực hiện không có đủ Android tooling và đường tải Gradle không truy cập được. Workflow Android alpha là nơi build APK; chỉ coi phát hành thành công khi workflow xanh và release `v0.2.0-android-alpha` có asset thực tế.
+
+Chưa chơi trên điện thoại Android thật để xác minh haptic, Back, inset của từng hãng và cảm giác thao tác. Chưa có playtest người mới để xác nhận độ cuốn hút hay mốc 8–15 phút của Chương 1. Kiểm thử tự động xác nhận tính hoàn thành và đúng luật, không thay thế đánh giá người chơi.
