@@ -40,7 +40,7 @@ test("complete Chapter 1, repeat farming, deliver another order, unlock both upg
   s = play(s, "DELIVER");
   assert.equal(missionIndex(s), 5);
   const opened = applyAction(s, { type: "OPEN_MARKET" }, at);
-  assert.equal(opened.completed, true);
+  assert.equal(opened.completed, "market");
   s = opened.state;
   assert.equal(missionIndex(s), 6);
   s = play(s, "HARVEST", { plotId: 1 });
@@ -176,4 +176,171 @@ test("selling surplus keeps first order supplies", () => {
   assert.equal(s.veg, 3);
   assert.equal(s.eggs, 1);
   assert.equal(s.coins, 147);
+});
+
+test("full second chapter has a reachable ending using earned resources only", () => {
+  let s = createInitialState();
+  const go = (type, extras = {}) => {
+    if (
+      !s.energy &&
+      !["NEXT_DAY", "HELP", "REFILL", "CLAIM_DAILY"].includes(type)
+    )
+      s = play(s, "NEXT_DAY");
+    s = play(s, type, extras);
+  };
+  go("HARVEST", { plotId: 1 });
+  go("REPAIR");
+  go("FEED");
+  go("PLANT", { plotId: 1 });
+  go("WATER", { plotId: 1 });
+  go("NEXT_DAY");
+  go("COLLECT");
+  go("DELIVER");
+  go("OPEN_MARKET");
+  go("UPGRADE_HOUSE");
+  go("UPGRADE_FIELD");
+  assert.equal(missionIndex(s), 8);
+  go("HARVEST", { plotId: 1 });
+  go("PLANT", { plotId: 1, crop: "tomato" });
+  go("WATER", { plotId: 1 });
+  go("FEED");
+  go("NEXT_DAY");
+  go("COLLECT");
+  go("HARVEST", { plotId: 1 });
+  assert.equal(s.tomatoes, 5);
+  go("SPECIAL_ORDER");
+  assert.equal(s.milestones.specialOrder, true);
+  go("PLANT", { plotId: 1, crop: "sunflower" });
+  go("PLANT", { plotId: 2, crop: "tomato" });
+  go("HELP");
+  go("FEED");
+  go("NEXT_DAY");
+  go("COLLECT");
+  go("HARVEST", { plotId: 1 });
+  go("HARVEST", { plotId: 2 });
+  assert.ok(s.veg >= 3);
+  assert.ok(s.flowers >= 3);
+  assert.ok(s.tomatoes >= 2);
+  assert.ok(s.eggs >= 2);
+  go("PREPARE_FEAST");
+  go("START_FESTIVAL");
+  assert.equal(missionIndex(s), 13);
+  assert.equal(s.milestones.festival, true);
+  assert.ok(s.coins >= 0 && s.gems >= 0 && s.energy >= 0);
+  assert.equal(applyAction(s, { type: "START_FESTIVAL" }, at).ok, false);
+  const replay = normalizeSave(JSON.parse(JSON.stringify(s)));
+  assert.deepEqual(replay, s);
+  const morning = play(s, "NEXT_DAY");
+  assert.equal(morning.milestones.festival, true);
+  assert.ok(morning.day > morning.festivalDay);
+});
+
+test("crop locks, per-crop timing, water yield and action crop tampering", () => {
+  let s = createInitialState();
+  assert.equal(
+    applyAction(s, { type: "PLANT", plotId: 2, crop: "tomato" }, at).ok,
+    false,
+  );
+  assert.equal(
+    applyAction(s, { type: "PLANT", plotId: 2, crop: "sunflower" }, at).ok,
+    false,
+  );
+  assert.equal(
+    applyAction(s, { type: "PLANT", plotId: 2, crop: "not-a-crop" }, at).ok,
+    false,
+  );
+  s = { ...s, houseFixed: true };
+  s = play(s, "PLANT", { plotId: 2, crop: "tomato" });
+  assert.equal(s.plots[1].readyAt, at + 240000);
+  s = play(s, "WATER", { plotId: 2 });
+  assert.equal(s.plots[1].readyAt, at + 120000);
+  s = resolveTimers(s, at + 120001);
+  s = play(s, "HARVEST", { plotId: 2, crop: "sunflower" });
+  assert.equal(s.tomatoes, 5);
+  assert.equal(s.flowers, 0);
+  assert.equal(s.milestones.tomato, true);
+});
+
+test("v5 migration preserves five-point energy, milestones, upgrades, resources and timers", () => {
+  const old = {
+    version: 5,
+    energy: 4,
+    coins: 345,
+    gems: 8,
+    water: 38,
+    feed: 67,
+    day: 8,
+    houseFixed: true,
+    waterFixed: true,
+    starterSeen: true,
+    orderDay: 8,
+    milestones: {
+      harvest: true,
+      repair: true,
+      feed: true,
+      egg: true,
+      order: true,
+      market: true,
+    },
+    plots: [
+      { id: 1, state: "growing", readyAt: 999999999, watered: true },
+      { id: 2, state: "empty" },
+      { id: 3, state: "empty" },
+    ],
+  };
+  const s = normalizeSave(old);
+  assert.equal(s.version, 6);
+  assert.equal(s.energy, 4);
+  assert.equal(s.coins, 345);
+  assert.equal(s.gems, 8);
+  assert.equal(s.milestones.market, true);
+  assert.equal(s.milestones.home, true);
+  assert.equal(s.milestones.expansion, true);
+  assert.equal(missionIndex(s), 8);
+  assert.equal(s.plots[0].readyAt, old.plots[0].readyAt);
+  assert.equal(s.plots[0].crop, "greens");
+  assert.deepEqual(s.deliveredOrders, ["linh"]);
+});
+
+test("daily orders, daily gifts, rain bonus and coop upgrade remain bounded", () => {
+  let s = {
+    ...createInitialState(),
+    coins: 100,
+    veg: 20,
+    eggs: 6,
+    energy: 5,
+    day: 2,
+    houseFixed: true,
+    milestones: {
+      ...createInitialState().milestones,
+      harvest: true,
+      repair: true,
+      feed: true,
+      egg: true,
+      order: true,
+      market: true,
+    },
+    daily: { harvest: true, care: true, trade: false },
+  };
+  s = play(s, "DELIVER", { orderId: "linh" });
+  const duplicate = applyAction(s, { type: "DELIVER", orderId: "linh" }, at);
+  assert.equal(duplicate.ok, false);
+  assert.deepEqual(duplicate.state, s);
+  assert.equal(
+    applyAction(s, { type: "DELIVER", orderId: "bad" }, at).ok,
+    false,
+  );
+  s = play(s, "CLAIM_DAILY");
+  assert.equal(applyAction(s, { type: "CLAIM_DAILY" }, at).ok, false);
+  const eggs = s.eggs;
+  s = play(s, "UPGRADE_COOP");
+  assert.equal(s.chickens, 3);
+  assert.equal(s.eggs, eggs);
+  s = play(s, "PLANT", { plotId: 2, crop: "tomato" });
+  s = play(s, "NEXT_DAY");
+  assert.equal(s.day, 3);
+  assert.equal(s.plots[1].watered, true);
+  assert.equal(s.plots[1].state, "ready");
+  assert.deepEqual(s.deliveredOrders, []);
+  assert.deepEqual(s.daily, { harvest: false, care: false, trade: false });
 });

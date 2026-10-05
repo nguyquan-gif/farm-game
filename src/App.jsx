@@ -7,6 +7,7 @@ import MissionCard from "./components/MissionCard.jsx";
 import BottomSheet from "./components/BottomSheet.jsx";
 import Feedback from "./components/Feedback.jsx";
 import Icon from "./components/Icon.jsx";
+import LinhNote from "./components/LinhNote.jsx";
 import FarmScreen from "./screens/FarmScreen.jsx";
 import ShopScreen from "./screens/ShopScreen.jsx";
 import StoryScreen from "./screens/StoryScreen.jsx";
@@ -15,14 +16,18 @@ import SettingsSheet from "./screens/SettingsSheet.jsx";
 import { ZONE_NAMES } from "./data/missions.js";
 const tabs = [
   ["farm", "home", "Nông trại"],
-  ["shop", "bag", "Tiếp tế"],
+  ["orders", "market", "Đơn hàng"],
+  ["shop", "bag", "Kho đồ"],
   ["story", "book", "Nhật ký"],
 ];
 export default function App() {
   const { game, act, feedback, celebrate, setCelebrate, saveError } = useGame();
   const [tab, setTab] = useState("farm"),
-    [sheet, setSheet] = useState(null);
-  const open = useCallback((zone) => {
+    [sheet, setSheet] = useState(null),
+    [focusPlot, setFocusPlot] = useState(null),
+    [daybreak, setDaybreak] = useState(null);
+  const open = useCallback((zone, plotId = null) => {
+    setFocusPlot(plotId);
     if (zone === "supplies") {
       setSheet(null);
       setTab("shop");
@@ -31,6 +36,20 @@ export default function App() {
       setSheet(zone);
     }
   }, []);
+  const perform = useCallback(
+    (action) => {
+      const result = act(action);
+      if (result.ok && action.type === "NEXT_DAY")
+        setDaybreak(result.state.day);
+      return result;
+    },
+    [act],
+  );
+  useEffect(() => {
+    if (!daybreak) return;
+    const timer = setTimeout(() => setDaybreak(null), 1500);
+    return () => clearTimeout(timer);
+  }, [daybreak]);
   const backState = useRef({ sheet, tab, celebrate });
   useEffect(() => {
     backState.current = { sheet, tab, celebrate };
@@ -55,19 +74,23 @@ export default function App() {
     };
   }, [setCelebrate]);
   const reset = () => {
-    act({ type: "RESET" });
+    perform({ type: "RESET" });
     setSheet(null);
     setTab("farm");
     setCelebrate(false);
   };
+  const finishMoment = () => {
+    setCelebrate(false);
+    setSheet(null);
+    setTab("farm");
+  };
   return (
-    <div className="game-shell">
+    <div className={`game-shell tab-${tab}`}>
       <Hud
         game={game}
         onSettings={() => setSheet("settings")}
         onEnergy={() => open("rest")}
       />
-      <MissionCard game={game} onOpen={open} />
       {saveError && (
         <div className="save-alert" role="status">
           {saveError}
@@ -75,121 +98,224 @@ export default function App() {
       )}
       <main key={tab} className="game-main">
         {tab === "farm" ? (
-          <FarmScreen game={game} onOpen={open} />
+          <FarmScreen
+            game={game}
+            onOpen={open}
+            act={perform}
+            feedback={feedback}
+          />
         ) : tab === "shop" ? (
-          <ShopScreen game={game} act={act} />
-        ) : (
+          <ShopScreen game={game} act={perform} onOpen={open} />
+        ) : tab === "story" ? (
           <StoryScreen game={game} onOpen={open} />
+        ) : (
+          <section className="content-screen orders-screen">
+            <header className="screen-heading">
+              <p className="eyebrow">TỪ VƯỜN NHÀ ĐẾN BẾP LÀNG</p>
+              <h2>Bảng đơn hàng</h2>
+              <p>Một giỏ nông sản, một người bạn vui hơn.</p>
+            </header>
+            <ZoneSheet zone="market" game={game} act={perform} onOpen={open} />
+          </section>
         )}
       </main>
-      <nav className="bottom-nav" aria-label="Điều hướng trò chơi">
-        {tabs.map(([id, icon, label]) => (
-          <button
-            key={id}
-            aria-current={tab === id ? "page" : undefined}
-            className={tab === id ? "active" : ""}
-            onClick={() => setTab(id)}
-          >
-            <Icon name={icon} size={24} />
-            <span>{label}</span>
-          </button>
-        ))}
-      </nav>
+      <div className="bottom-dock">
+        {tab === "farm" && <MissionCard game={game} onOpen={open} />}
+        <nav className="bottom-nav" aria-label="Điều hướng trò chơi">
+          {tabs.map(([id, icon, label]) => (
+            <button
+              key={id}
+              aria-current={tab === id ? "page" : undefined}
+              className={tab === id ? "active" : ""}
+              onClick={() => setTab(id)}
+            >
+              <Icon name={icon} size={23} />
+              <span>{label}</span>
+              {id === "orders" &&
+                game.milestones.market &&
+                game.deliveredOrders.length === 0 && <i className="nav-dot" />}
+            </button>
+          ))}
+        </nav>
+      </div>
       {!sheet && !celebrate && game.starterSeen && (
         <Feedback feedback={feedback} />
       )}
       {!game.starterSeen && !sheet && (
         <BottomSheet
-          feedback={feedback}
-          title="Một mùa mới đang đợi"
-          subtitle="Chào mừng về nhà"
+          title="Cậu về rồi, thung lũng đang đợi!"
+          subtitle="Lời hẹn ngày trở về"
           onClose={() =>
-            act({ type: "SETTING", key: "starterSeen", value: true })
+            perform({ type: "SETTING", key: "starterSeen", value: true })
           }
         >
-          <div className="welcome-art">
-            <Icon name="leaf" size={66} />
+          <div className="story-opening">
+            <img
+              src="./art/linh-portrait.webp"
+              alt="Linh mỉm cười đón bạn về thung lũng"
+            />
+            <div>
+              <span className="character-tag">Linh</span>
+              <h3>
+                Mình mở lại
+                <br />
+                phiên chợ nhé?
+              </h3>
+              <p>
+                Ông để lại một khu vườn. Mình giữ lời hẹn nấu bữa cơm làng. Chỉ
+                còn thiếu cậu.
+              </p>
+            </div>
           </div>
-          <p className="welcome-copy">
-            Ông để lại một mảnh vườn, hai chú gà và những người hàng xóm tốt
-            bụng. Hãy cùng đánh thức thung lũng nhé.
+          <p className="opening-goal">
+            Hái rau, chăm Mơ & Mận, rồi mang giỏ nông sản sang cho Linh. Từ bữa
+            cơm ấy, cả thung lũng sẽ có một khởi đầu mới.
           </p>
-          <div className="welcome-steps">
-            <span>Chăm vườn</span>
-            <Icon name="arrow" size={16} />
-            <span>Giao nông sản</span>
-            <Icon name="arrow" size={16} />
-            <span>Mở phiên chợ</span>
-          </div>
           <button
             className="primary-button"
             onClick={() => {
-              act({ type: "SETTING", key: "starterSeen", value: true });
-              open("field");
+              perform({ type: "SETTING", key: "starterSeen", value: true });
+              setSheet(null);
             }}
           >
-            Hái giỏ rau đầu tiên
+            Về vườn hái giỏ rau đầu tiên
             <Icon name="arrow" size={18} />
           </button>
           <p className="quiet-note">
-            Chơi theo nhịp của bạn. Sang ngày mới luôn miễn phí.
+            Chạm giỏ trên luống rau để hái. Đi theo dấu ! để tiếp tục câu
+            chuyện.
           </p>
         </BottomSheet>
       )}
       {sheet && !celebrate && (
         <BottomSheet
-          key={sheet}
+          key={`${sheet}-${focusPlot}`}
           feedback={feedback}
           title={
             ZONE_NAMES[sheet] ||
             {
               settings: "Góc bình yên",
-              rest: "Một giấc ngủ, một ngày mới",
-              exit: "Hẹn bạn mùa xanh sau",
+              rest: "Gác lại hôm nay",
+              daily: "Một ngày trọn vẹn",
+              exit: "Hẹn gặp lại ở thung lũng",
             }[sheet]
           }
-          subtitle={sheet === "settings" ? "Cài đặt" : "Nông trại của bạn"}
+          subtitle={
+            sheet === "settings"
+              ? "Cài đặt"
+              : sheet === "daily"
+                ? `Ngày ${game.day} · Những niềm vui nhỏ`
+                : "GREEN VALLEY FARM"
+          }
           onClose={() => setSheet(null)}
         >
           {sheet === "settings" ? (
             <SettingsSheet
               game={game}
-              act={act}
+              act={perform}
               onReset={reset}
               saveError={saveError}
             />
           ) : sheet === "rest" ? (
             <>
-              <div className="zone-hero rest-hero">
-                <Icon name="moon" size={68} />
-                <h3>Hẹn bạn ở ngày {game.day + 1}</h3>
-                <p>
-                  5/5 năng lượng · Thêm {game.waterFixed ? 25 : 10}% nước
-                  <br />
-                  Rau đang lớn sẽ chín · Gà đã ăn sẽ có trứng
-                  <br />
-                  Kho thức ăn giảm 5% mỗi đêm.
-                </p>
+              <div className="rest-art">
+                <Icon name="moon" size={47} />
+                <span>NGÀY {game.day + 1}</span>
+                <h3>
+                  {(game.day + 1) % 3 === 0
+                    ? "Mai có mưa xuân"
+                    : "Một bình minh mới"}
+                </h3>
+                <p>Vườn vẫn lớn ngay cả khi mình nghỉ ngơi.</p>
               </div>
+              <ul className="rest-summary">
+                <li>
+                  <Icon name="energy" />
+                  Hồi đủ <b>5/5 năng lượng</b>
+                </li>
+                <li>
+                  <Icon name="leaf" />
+                  {game.plots.filter((p) => p.state === "growing").length} luống
+                  đang lớn sẽ thu hoạch được
+                </li>
+                <li>
+                  <Icon name="egg" />
+                  {game.coop.status === "fed"
+                    ? `${game.chickens} trứng mới đang chờ bạn`
+                    : "Cho gà ăn trước khi nghỉ để có trứng"}
+                </li>
+                <li>
+                  <Icon name="water" />
+                  Thêm{" "}
+                  {(game.day + 1) % 3 === 0 ? 40 : game.waterFixed ? 25 : 10}%
+                  nước · Thức ăn giảm 5%
+                </li>
+              </ul>
+              {(game.day + 1) % 3 === 0 && (
+                <p className="rain-tip">
+                  Mưa sẽ tưới các luống đang lớn, cho thêm 1 nông sản khi hái.
+                </p>
+              )}
               <button
                 className="primary-button"
                 onClick={() => {
-                  act({ type: "NEXT_DAY" });
+                  perform({ type: "NEXT_DAY" });
                   setSheet(null);
                 }}
               >
                 Bắt đầu ngày {game.day + 1}
-                <Icon name="sun" size={18} />
+                <Icon name="sun" size={19} />
               </button>
               <p className="quiet-note">
-                Không cần chờ · Không tốn xu hoặc ngọc
+                Luôn miễn phí · Không có nhiệm vụ bị hết hạn
               </p>
+            </>
+          ) : sheet === "daily" ? (
+            <>
+              <LinhNote>
+                Mỗi ngày chỉ cần chăm một chút. Làm đủ ba việc để nhận món quà
+                nhỏ từ làng nhé.
+              </LinhNote>
+              <div className="daily-tasks">
+                {[
+                  ["harvest", "leaf", "Thu hoạch một luống", "field"],
+                  ["care", "water", "Tưới cây hoặc cho gà ăn", "field"],
+                  ["trade", "market", "Giao đơn hoặc bán nông sản", "market"],
+                ].map(([key, icon, label, zone]) => (
+                  <button
+                    key={key}
+                    className={game.daily[key] ? "done" : ""}
+                    onClick={() => open(zone)}
+                  >
+                    <Icon name={game.daily[key] ? "check" : icon} />
+                    <span>{label}</span>
+                    <Icon name="arrow" size={17} />
+                  </button>
+                ))}
+              </div>
+              <div className="daily-prize">
+                <Icon name="gift" size={32} />
+                <b>35 xu · 2 hạt · 1 ngọc</b>
+              </div>
+              <button
+                className="primary-button"
+                disabled={
+                  game.dailyRewardDay === game.day ||
+                  !Object.values(game.daily).every(Boolean)
+                }
+                onClick={() => perform({ type: "CLAIM_DAILY" })}
+              >
+                {game.dailyRewardDay === game.day
+                  ? "Đã nhận quà hôm nay"
+                  : "Nhận quà một ngày trọn vẹn"}
+              </button>
             </>
           ) : sheet === "exit" ? (
             <>
-              <p className="welcome-copy">
-                Tiến trình đã được lưu trên thiết bị. Bạn có thể quay lại bất cứ
-                lúc nào.
+              <p className="opening-goal">
+                {saveError
+                  ? "Thiết bị đang không lưu được tiến trình. Thoát lúc này có thể mất thay đổi của phiên chơi."
+                  : "Tiến trình đã được lưu trên thiết bị. Khu vườn sẽ đợi bạn trở lại."}
               </p>
               <button
                 className="primary-button"
@@ -205,56 +331,109 @@ export default function App() {
               </button>
             </>
           ) : (
-            <ZoneSheet zone={sheet} game={game} act={act} onOpen={open} />
+            <ZoneSheet
+              zone={sheet}
+              game={game}
+              act={perform}
+              onOpen={open}
+              focusPlot={focusPlot}
+            />
           )}
         </BottomSheet>
       )}
       {celebrate && (
         <BottomSheet
-          feedback={feedback}
-          title="Thung lũng lại rộn ràng!"
-          subtitle="Chương 1 hoàn thành"
-          onClose={() => {
-            setCelebrate(false);
-            setSheet(null);
-          }}
+          title={
+            celebrate === "festival"
+              ? "Thung lũng đã có cậu."
+              : "Phiên chợ lại rộn ràng!"
+          }
+          subtitle={
+            celebrate === "festival"
+              ? "Chương 2 hoàn thành · Đêm hội mùa xanh"
+              : "Chương 1 hoàn thành · Lời hẹn ngày trở về"
+          }
+          onClose={finishMoment}
         >
-          <div className="celebration-art">
-            <Icon name="market" size={82} />
+          <div
+            className={`celebration-art ${celebrate === "festival" ? "finale" : ""}`}
+          >
+            <img src="./art/valley-world.webp" alt="Thung lũng bừng sức sống" />
+            <div>
+              <Icon name="star" size={33} />
+              <h3>
+                {celebrate === "festival"
+                  ? "Một nơi để trở về"
+                  : "Từ một giỏ rau nhỏ…"}
+              </h3>
+            </div>
             {Array.from({ length: 12 }, (_, i) => (
               <i key={i} style={{ "--angle": `${i * 30}deg` }} />
             ))}
           </div>
-          <p className="welcome-copy">
-            Từ giỏ rau đầu tiên đến một phiên chợ đầy tiếng cười. Linh và cả
-            thung lũng cảm ơn bạn.
-          </p>
-          <div className="chapter-reward">
-            <span>
-              <Icon name="coin" />
-              +30 xu
-            </span>
-            <span>
-              <Icon name="gem" />
-              +2 ngọc
-            </span>
-          </div>
-          <div className="story-letter">
-            <p className="eyebrow">Chương 2 đã mở</p>
-            <h3>Một mái nhà ấm</h3>
-            <p>Sửa mái nhà, mở rộng vườn và tìm lại nhật ký của ông.</p>
-          </div>
+          <LinhNote>
+            {celebrate === "festival"
+              ? "Cậu đã trồng, chăm, chia sẻ và mang mọi người lại gần nhau. Mình nghĩ đó chính là điều ông muốn gửi lại."
+              : "Cậu thấy không? Mọi người đã quay lại rồi. Trong nhà vẫn còn lá thư của ông. Biết đâu mình có thể tổ chức hội mùa như ngày xưa."}
+          </LinhNote>
+          {celebrate === "festival" ? (
+            <div className="ending-stats">
+              <span>
+                <b>{game.stats.harvests}</b>mùa thu hoạch
+              </span>
+              <span>
+                <b>{game.stats.deliveries}</b>giỏ đã trao
+              </span>
+              <span>
+                <b>{game.day}</b>ngày ở thung lũng
+              </span>
+            </div>
+          ) : (
+            <div className="chapter-reward">
+              <span>
+                <Icon name="coin" />
+                +30 xu
+              </span>
+              <span>
+                <Icon name="gem" />
+                +2 ngọc
+              </span>
+              <span>
+                <Icon name="market" />
+                Bảng đơn hàng
+              </span>
+            </div>
+          )}
           <button
             className="primary-button"
             onClick={() => {
-              setCelebrate(false);
-              open("house");
+              finishMoment();
+              if (celebrate !== "festival") open("house");
             }}
           >
-            Viết tiếp câu chuyện
+            {celebrate === "festival"
+              ? "Ngắm thung lũng đêm hội"
+              : "Chương 2 · Tìm lá thư của ông"}
             <Icon name="arrow" size={18} />
           </button>
+          {celebrate === "festival" && (
+            <p className="quiet-note">
+              Câu chuyện đã trọn vẹn. Bạn vẫn có thể chăm vườn, hoàn thành đơn
+              hàng và đón ngày mới.
+            </p>
+          )}
         </BottomSheet>
+      )}
+      {daybreak && (
+        <div className="daybreak" role="status">
+          <Icon name="sun" size={51} />
+          <h2>Chào ngày {daybreak}</h2>
+          <p>
+            {daybreak % 3 === 0
+              ? "Mưa xuân đang tưới khu vườn"
+              : "Nắng đã về bên hiên nhà"}
+          </p>
+        </div>
       )}
     </div>
   );

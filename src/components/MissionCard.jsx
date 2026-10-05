@@ -1,36 +1,41 @@
-import Icon from "./Icon.jsx";
-import { MISSIONS } from "../data/missions.js";
+import { MISSIONS, CHAPTERS } from "../data/missions.js";
 import { missionIndex } from "../game/engine.js";
+import Icon from "./Icon.jsx";
 export default function MissionCard({ game, onOpen }) {
   const index = missionIndex(game),
-    done = index === MISSIONS.length;
-  const mission = MISSIONS[Math.min(index, MISSIONS.length - 1)];
+    mission = MISSIONS[index],
+    chapter = CHAPTERS[mission?.chapter === 1 ? 0 : 1];
   return (
     <button
-      className={`mission-card ${done ? "chapter-done" : ""}`}
-      onClick={() => onOpen(done ? "house" : mission.target)}
+      key={index}
+      className={`mission-card ${!mission ? "chapter-done" : ""}`}
+      onClick={() => onOpen(mission?.target || "market")}
     >
-      <span className="mission-emblem">
-        <Icon name={done ? "star" : "book"} size={26} />
+      <span className="mission-portrait">
+        <img src="./art/linh-portrait.webp" alt="Linh" />
+        <i>
+          <Icon name={mission ? "book" : "check"} size={13} />
+        </i>
       </span>
       <span className="mission-copy">
         <span className="eyebrow">
-          {done ? "Chương 2 · Một mái nhà ấm" : `Chương 1 · ${index + 1}/6`}
+          {mission
+            ? `Chương ${mission.chapter} · ${index - chapter.start + 1}/${chapter.end - chapter.start}`
+            : "Hai chương đã hoàn thành"}
+          <span className="quest-progress">
+            {Math.round((index / MISSIONS.length) * 100)}%
+          </span>
         </span>
-        <strong>{done ? "Viết tiếp câu chuyện của bạn" : mission.title}</strong>
+        <strong>{mission?.title || "Thung lũng đã có cậu"}</strong>
         <span className="mission-action">
-          {done ? "Khám phá cuốn nhật ký" : mission.action}
+          {mission?.action || "Tiếp tục chăm vườn & giao đơn"}
           <Icon name="arrow" size={16} />
         </span>
       </span>
-      <span className="mission-dots" aria-hidden="true">
-        {MISSIONS.map((m, i) => (
-          <i
-            key={m.flag}
-            className={i < index ? "done" : i === index ? "current" : ""}
-          />
-        ))}
-      </span>
+      <span
+        className="mission-progress"
+        style={{ "--progress": `${(index / MISSIONS.length) * 100}%` }}
+      />
     </button>
   );
 }

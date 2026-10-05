@@ -1,342 +1,443 @@
 import Icon from "./Icon.jsx";
+import Produce from "./Produce.jsx";
 import { MISSIONS, ZONE_NAMES } from "../data/missions.js";
+import { CROPS } from "../data/crops.js";
 import { missionIndex, zoneStatus } from "../game/engine.js";
-const positions = {
-  house: [44, 24],
-  coop: [78, 43],
-  water: [18, 49],
-  field: [38, 73],
-  market: [79, 85],
-};
-const icons = {
-  house: "home",
-  coop: "chicken",
-  water: "water",
-  field: "leaf",
-  market: "market",
-};
-function Tree({ x, y, scale = 1 }) {
+const sites = [
+  { id: "house", x: 49, y: 26, icon: "home" },
+  { id: "water", x: 16, y: 39, icon: "water" },
+  { id: "coop", x: 82, y: 43, icon: "chicken" },
+  { id: "market", x: 79, y: 68, icon: "market" },
+];
+const beds = [
+  {
+    x: 18,
+    y: 56,
+    points: [
+      [132, 808],
+      [182, 794],
+      [171, 851],
+      [223, 835],
+      [216, 894],
+      [268, 879],
+    ],
+  },
+  {
+    x: 31,
+    y: 53.7,
+    points: [
+      [244, 773],
+      [288, 761],
+      [291, 811],
+      [335, 798],
+      [337, 851],
+      [384, 838],
+    ],
+  },
+  {
+    x: 43,
+    y: 51.5,
+    points: [
+      [344, 744],
+      [389, 733],
+      [398, 781],
+      [440, 767],
+      [447, 821],
+      [492, 806],
+    ],
+  },
+];
+function Chicken({ x, y, flip = false, fed }) {
   return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`}>
-      <ellipse cy="18" rx="19" ry="7" fill="#264d30" opacity=".12" />
-      <path d="M-3 5h6v17h-6Z" fill="#806348" />
-      <circle cy="-8" r="21" fill="#487b47" />
-      <circle cx="-7" cy="-15" r="14" fill="#629752" />
-      <circle cx="8" cy="-10" r="13" fill="#79a961" />
-      <path d="m0-8 1 21" stroke="#3f713f" opacity=".45" />
+    <g transform={`translate(${x} ${y}) scale(${flip ? -1 : 1} 1)`}>
+      <g className={`hen ${fed ? "fed" : ""}`}>
+        <ellipse cx="0" cy="18" rx="26" ry="9" fill="#695338" opacity=".23" />
+        <path d="m-9 16-4 10m19-10 3 10" stroke="#d99b45" strokeWidth="5" />
+        <path
+          d="M-16 8Q-46-8-29-19l14 12c20-18 34-3 34 9 0 27-36 29-35 6"
+          fill="#fff3ce"
+          stroke="#ac854e"
+          strokeWidth="2"
+        />
+        <ellipse cx="-3" cy="9" rx="15" ry="10" fill="#e3d1a3" />
+        <path d="M10-12q-8-13 1-14 3 4 5 4 7-6 9 1 0 7-15 9" fill="#c45736" />
+        <circle cx="15" cy="-8" r="11" fill="#fff3ce" />
+        <path d="m23-7 13 6-13 2" fill="#e1a136" />
+        <circle cx="18" cy="-10" r="2.7" fill="#3c3328" />
+      </g>
     </g>
   );
 }
-function Crop({ x, y, ready }) {
+function Villager({ x, y, shirt, hat = false }) {
   return (
     <g transform={`translate(${x} ${y})`}>
-      <ellipse cy="4" rx={ready ? 9 : 4} ry="4" fill="#3e5728" opacity=".3" />
+      <ellipse cy="30" rx="21" ry="7" fill="#493f2b" opacity=".2" />
       <path
-        d={
-          ready
-            ? "M0 3C-19 0-7-17 0-4c7-13 19 4 0 7Z"
-            : "M0 3c-10-1-8-10-1-5 5-9 13-2 1 5Z"
-        }
-        fill={ready ? "#447d36" : "#79ae53"}
-        stroke="#35632d"
-        strokeWidth="1"
+        d="M-8 15v19m16-19v19"
+        stroke="#69543c"
+        strokeWidth="7"
+        strokeLinecap="round"
       />
-      <path d="M0 3V-6" stroke="#b3ce7f" />
+      <path d="M-13-5q13-7 26 0l5 25h-36Z" fill={shirt} />
+      <path
+        d="m-12-2-7 15m31-15 9 12"
+        stroke="#d1a37a"
+        strokeWidth="7"
+        strokeLinecap="round"
+      />
+      <circle cy="-17" r="13" fill="#4c392a" />
+      <ellipse cy="-13" rx="10" ry="12" fill="#dcac80" />
+      {hat ? (
+        <>
+          <ellipse cy="-25" rx="22" ry="6" fill="#caa967" />
+          <path d="M-14-27q0-18 14-18t14 18" fill="#d9b875" />
+        </>
+      ) : (
+        <path d="M-11-18q-3-20 8-18 17-2 16 22L4-26Z" fill="#54422d" />
+      )}
     </g>
   );
 }
-function Chicken({ x, y }) {
+export default function FarmMap({ game, onOpen, act, feedback }) {
+  const mission = MISSIONS[missionIndex(game)],
+    target = mission?.target;
+  const night = game.milestones.festival && game.day === game.festivalDay;
+  const rain = game.day % 3 === 0 && !night;
   return (
-    <g transform={`translate(${x} ${y})`}>
-      <ellipse cy="8" rx="10" ry="3" fill="#796641" opacity=".25" />
-      <ellipse rx="9" ry="7" fill="#fff6df" />
-      <circle cx="6" cy="-7" r="5" fill="#fff6df" />
-      <path d="m10-7 5 2-5 2" fill="#d79236" />
-      <circle cx="7" cy="-9" r="1" fill="#493d2d" />
-      <path d="m3-11 1-4 3 1 2-2 2 4" fill="#b95138" />
-      <path d="m-4 6-1 5m7-5 1 5" stroke="#a4743c" strokeWidth="2" />
-    </g>
-  );
-}
-export default function FarmMap({ game, onOpen }) {
-  const current = MISSIONS[missionIndex(game)]?.target || "house";
-  const locked = missionIndex(game) < 4;
-  return (
-    <section className="farm-world" aria-label="Bản đồ nông trại tương tác">
-      <div className="world-heading">
-        <span>
-          <Icon name="sun" size={16} />
-          Ngày {game.day} · Nắng dịu
-        </span>
-        <span>Thung lũng của bạn</span>
-      </div>
-      <div className="map-stage">
-        <svg className="world-art" viewBox="0 0 400 420" aria-hidden="true">
+    <div
+      className={`farm-world ${night ? "festival-night" : ""} ${rain ? "rainy" : ""}`}
+    >
+      <div className="world-stage">
+        <img
+          className="world-art"
+          src="./art/valley-world.webp"
+          alt="Thung lũng xanh với mái nhà ngói, chuồng gà, vườn rau và phiên chợ bên dòng suối"
+          fetchPriority="high"
+          draggable="false"
+        />
+        <svg className="world-life" viewBox="0 0 1024 1536" aria-hidden="true">
           <defs>
-            <linearGradient id="land" x2="0" y2="1">
-              <stop stopColor="#adc879" />
-              <stop offset="1" stopColor="#86a963" />
-            </linearGradient>
-            <linearGradient id="river" x2="1" y2="1">
-              <stop stopColor="#9ccbc1" />
-              <stop offset="1" stopColor="#60a8ac" />
-            </linearGradient>
-            <linearGradient id="soil" x2="0" y2="1">
-              <stop stopColor="#ab8055" />
-              <stop offset="1" stopColor="#755336" />
-            </linearGradient>
-            <pattern
-              id="grass"
-              width="25"
-              height="25"
-              patternUnits="userSpaceOnUse"
-            >
+            <radialGradient id="lamp">
+              <stop stopColor="#fff2a5" stopOpacity=".9" />
+              <stop offset="1" stopColor="#f4ad49" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          {!game.houseFixed && (
+            <g className="roof-patch">
               <path
-                d="m6 14 2-3 2 3m10 7 2-2"
-                stroke="#668e50"
-                opacity=".15"
+                d="m454 229 66-6 45 67-69 4Z"
+                fill="#776549"
+                opacity=".75"
+              />
+              <path
+                d="m469 235 43-1m-35 12 43-1m-36 12 43-1m-33 12 43-1"
+                stroke="#b4a079"
+                strokeWidth="5"
+              />
+            </g>
+          )}
+          {game.houseFixed && (
+            <g>
+              <circle cx="489" cy="353" r="58" fill="url(#lamp)" />
+              <path
+                d="M422 390q15-26 29 0m91-7q15-27 29 0"
+                stroke="#cd8a76"
+                strokeWidth="12"
+              />
+            </g>
+          )}
+          {!game.waterFixed && (
+            <g className="leak">
+              <path
+                d="M141 448q-23 20-17 73"
+                stroke="#b4e9e1"
+                strokeWidth="8"
+                strokeDasharray="10 10"
                 fill="none"
               />
-            </pattern>
-          </defs>
-          <ellipse
-            cx="200"
-            cy="373"
-            rx="170"
-            ry="25"
-            fill="#385339"
-            opacity=".13"
-          />
-          <path
-            d="M20 200Q30 144 110 120L279 122Q365 148 383 232L375 315Q347 381 198 390 40 379 24 308Z"
-            fill="#765338"
-          />
-          <path
-            d="M20 185Q30 128 111 104L279 107Q366 134 383 216L375 299Q347 365 198 374 40 363 24 292Z"
-            fill="#b69463"
-          />
-          <path
-            d="M20 173Q31 120 111 98L279 100Q366 127 383 204L375 287Q347 353 198 363 40 351 24 280Z"
-            fill="url(#land)"
-          />
-          <path
-            d="M20 173Q31 120 111 98L279 100Q366 127 383 204L375 287Q347 353 198 363 40 351 24 280Z"
-            fill="url(#grass)"
-          />
-          <path
-            d="M53 153Q105 180 77 219T57 288Q69 326 154 343"
-            stroke="#d5dbaf"
-            strokeWidth="25"
-            fill="none"
-          />
-          <path
-            d="M53 153Q105 180 77 219T57 288Q69 326 154 343"
-            stroke="url(#river)"
-            strokeWidth="17"
-            fill="none"
-          />
-          <path
-            d="M67 173l13 3m-17 82 11 3m15 57 14 6"
-            stroke="#d8ede2"
-            strokeWidth="2"
-            fill="none"
-            opacity=".8"
-          />
-          <path
-            d="M183 151Q153 204 221 245T294 321"
-            stroke="#e8d3a1"
-            strokeWidth="24"
-            fill="none"
-          />
-          <path
-            d="m196 240-59 56m86-57 77-40"
-            stroke="#e8d3a1"
-            strokeWidth="17"
-          />
-          <path d="m153 298 42 10" stroke="#95734c" strokeWidth="22" />
-          <path
-            d="m153 290 42 10m-39-5 42 10m-39-5 42 10"
-            stroke="#d0ac71"
-            strokeWidth="3"
-          />
-          <Tree x={58} y={128} />
-          <Tree x={115} y={95} scale={1.3} />
-          <Tree x={335} y={144} scale={1.15} />
-          <Tree x={360} y={252} scale={0.8} />
-          <Tree x={40} y={278} scale={0.75} />
-          <g transform="translate(172 128)">
-            <ellipse cy="28" rx="44" ry="11" fill="#405a30" opacity=".16" />
-            <path d="m-30-2 42-10 22 13v40l-42 10-22-12Z" fill="#efddb5" />
-            <path d="m12-12 22 13v40L12 28Z" fill="#d9c492" />
-            <path
-              d="m-37-3 29-31 51 14-25 28Z"
-              fill={game.houseFixed ? "#a45638" : "#8e6750"}
-            />
-            <path d="m-37-3 29-31v38Z" fill="#bc7650" />
-            <path d="m-8-34 51 14v7L-8-27Z" fill="#ce946b" />
-            <path d="M-21 14h12v22h-12Z" fill="#765235" />
-            <path d="M2 9h9v12H2Z" fill="#eccf71" stroke="#977244" />
-            <path d="m25 10 5 3v11l-5-3Z" fill="#bd9f68" />
-            <path d="M14-25v-19l9 3v19Z" fill="#af997a" />
-            <path d="M-29 31h21v5h-21Z" fill="#bd9c6b" />
-          </g>
-          <g transform="translate(292 190)">
-            <ellipse cy="28" rx="38" ry="10" fill="#405a30" opacity=".2" />
-            <path d="M-32-8h51v47h-51Z" fill="#b66b43" />
-            <path d="m19-8 17 12v36l-17-1Z" fill="#9d583b" />
-            <path d="m-39-7 25-29 42 6 17 34-26-12Z" fill="#785238" />
-            <path d="m-39-7 25-29 33 28Z" fill="#b39a64" />
-            <path d="M-17 13H2v26h-19Z" fill="#613d29" />
-            <path
-              d="M-25 0H9M-27 6H9M7 14h8v11H7Z"
-              stroke="#d5a66b"
-              fill="#eccd92"
-              strokeWidth="2"
-            />
-            <Chicken x={-19} y={45} />
-            <Chicken x={14} y={49} />
-            {game.coop.status === "egg-ready" && (
-              <g fill="#fff4d3" stroke="#c3a66f">
-                <ellipse cx="-6" cy="47" rx="4" ry="6" />
-                <ellipse cx="3" cy="48" rx="4" ry="6" />
-              </g>
-            )}
-          </g>
-          <g transform="translate(70 216)">
-            <ellipse cy="21" rx="24" ry="8" fill="#375933" opacity=".15" />
-            <path
-              d="M-18-6v30c0 11 37 11 37 0V-6Z"
-              fill="#b2bcb0"
-              stroke="#718b7d"
-              strokeWidth="2"
-            />
-            <path
-              d={`M-17 ${22 - game.water * 0.25}v23c0 9 34 9 34 0V${22 - game.water * 0.25}Z`}
-              fill="#72b3b3"
-              opacity=".65"
-            />
-            <ellipse
-              cy="-6"
-              rx="19"
-              ry="8"
-              fill="#d8ddd0"
-              stroke="#718b7d"
-              strokeWidth="2"
-            />
-            <ellipse cy="-6" rx="13" ry="4" fill="#83b9b4" />
-            <path
-              d="m19 11 11 3v19"
-              fill="none"
-              stroke="#98764f"
-              strokeWidth="4"
-            />
-            {!game.waterFixed && (
-              <path
-                className="leak-drop"
-                d="M30 34q-8 10 0 10t0-10"
-                fill="#609eaa"
+              <ellipse
+                cx="122"
+                cy="526"
+                rx="24"
+                ry="8"
+                fill="#71c9c7"
+                opacity=".65"
               />
-            )}
-          </g>
-          {game.plots.map((p, i) => (
-            <g
-              key={p.id}
-              transform={`translate(${118 + i * 43} ${281 + i * 14})`}
-            >
-              <path d="m-26 0 43-15 27 19-44 17Z" fill="#c49b63" />
-              <path d="m-23 0 40-12 23 16-40 14Z" fill="url(#soil)" />
-              <path
-                d="m-13 1 34-11m-24 18 34-11m-24 18 33-11"
-                stroke="#684c32"
-                strokeWidth="2"
-                opacity=".6"
-              />
-              {p.state !== "empty" &&
-                [
-                  [0, 0],
-                  [14, -5],
-                  [12, 8],
-                  [26, 3],
-                ].map(([x, y], j) => (
-                  <Crop
-                    key={j}
-                    x={x - 9}
-                    y={y - 1}
-                    ready={p.state === "ready"}
-                  />
-                ))}
             </g>
-          ))}
-          <g transform="translate(301 314)" opacity={locked ? 0.7 : 1}>
-            <ellipse cy="23" rx="34" ry="9" fill="#375933" opacity=".16" />
-            <path d="M-25-23h51v44h-51Z" fill="#c8975b" />
-            <path d="M-30-24h62l-7 18h-49Z" fill="#f6dd9f" />
-            {[0, 1, 2, 3].map((i) => (
+          )}
+          <Chicken x={747} y={619} fed={game.coop.status !== "hungry"} />
+          <Chicken x={842} y={650} flip fed={game.coop.status !== "hungry"} />
+          {game.chickens >= 3 && (
+            <Chicken x={792} y={661} fed={game.coop.status !== "hungry"} />
+          )}
+          {game.chickens >= 4 && (
+            <Chicken x={895} y={613} flip fed={game.coop.status !== "hungry"} />
+          )}
+          {game.coop.status === "egg-ready" && (
+            <g>
+              <ellipse cx="820" cy="588" rx="34" ry="13" fill="#ba8c4b" />
+              <ellipse cx="808" cy="580" rx="12" ry="16" fill="#fff4cf" />
+              <ellipse cx="830" cy="579" rx="12" ry="17" fill="#fff4cf" />
+            </g>
+          )}
+          {game.plots.map(
+            (plot, i) =>
+              plot.state !== "empty" && (
+                <g key={plot.id} className={`crop-group ${plot.state}`}>
+                  {beds[i].points.map(([x, y], n) => (
+                    <g
+                      key={n}
+                      transform={`translate(${x - 24} ${y - (plot.state === "ready" ? 45 : 19)})`}
+                      opacity={plot.state === "ready" ? 1 : 0.85}
+                    >
+                      <Produce
+                        kind={plot.state === "ready" ? plot.crop : "greens"}
+                        size={plot.state === "ready" ? 51 : 30}
+                      />
+                    </g>
+                  ))}
+                  {plot.watered && (
+                    <path
+                      d={`M${beds[i].points[0][0] - 10} ${beds[i].points[0][1] + 8}l130 100`}
+                      stroke="#5eafb9"
+                      opacity=".45"
+                      strokeWidth="7"
+                    />
+                  )}
+                </g>
+              ),
+          )}
+          {game.plots.length < 3 && (
+            <g fill="#677c41" opacity=".85">
               <path
-                key={i}
-                d={`M${-25 + i * 16} -24h8l-3 18h-8Z`}
-                fill="#7c9a63"
+                d="m382 761 113 80m-69-93-2 95"
+                stroke="#98835e"
+                strokeWidth="13"
               />
-            ))}
-            <path d="M-29-5h56v9h-56Z" fill="#efe0b1" />
-            <path d="M-22 6h43v16h-43Z" fill="#997048" />
-            <Crop x={-11} y={4} ready />
-            <Crop x={7} y={4} ready />
-            {game.milestones.market && (
-              <path d="M-38-38q40 15 77 0" stroke="#826f4b" fill="none" />
-            )}
-            {game.milestones.market &&
-              [-27, -10, 8, 25].map((x, i) => (
+              <path d="m382 759 113 80" stroke="#c6ae7d" strokeWidth="3" />
+            </g>
+          )}
+          {!game.milestones.market && (
+            <path
+              d="m717 962 147 29 1 42-158-29Z"
+              fill="#816f4e"
+              opacity=".72"
+            />
+          )}
+          {game.milestones.market && (
+            <g>
+              <path
+                d="M679 800q144 140 301 33"
+                fill="none"
+                stroke="#876744"
+                strokeWidth="3"
+              />
+              {[0, 1, 2, 3, 4, 5].map((i) => (
                 <path
-                  key={x}
-                  d={`m${x} -34 5 9 5-8Z`}
-                  fill={i % 2 ? "#f0c269" : "#b36a4a"}
+                  key={i}
+                  d={`m${696 + i * 44} ${823 + Math.sin(i * 0.55) * 46} 15 25 16-15Z`}
+                  fill={i % 2 ? "#e8b446" : "#749850"}
                 />
               ))}
-          </g>
-          <g stroke="#987c50" strokeWidth="3" fill="none">
-            <path d="m96 322 1 21m17-14 1 20m17-15 1 20m-38-21 42 9m-40-2 40 9" />
-            <path d="m340 278-1 19m14-23-1 18m14-24-1 18m-26 0 27-13m-28 21 27-13" />
-          </g>
-          {[
-            [105, 222],
-            [258, 133],
-            [337, 320],
-            [85, 309],
-            [208, 339],
-          ].map(([x, y], i) => (
-            <g key={i} transform={`translate(${x} ${y})`}>
-              <path d="M0 5V-2" stroke="#668049" />
-              <circle r="3" fill={i % 2 ? "#f5df9c" : "#e2b9a4"} />
-              <circle r="1" fill="#bd8c4e" />
+              <g transform="translate(755 966)">
+                <Produce kind="tomato" size={42} />
+              </g>
+              <g transform="translate(805 978)">
+                <Produce kind="greens" size={42} />
+              </g>
             </g>
-          ))}
-        </svg>
-        {Object.entries(positions).map(([zone, [x, y]]) => (
-          <button
-            key={zone}
-            className={`map-pin pin-${zone} ${current === zone ? "is-target" : ""} ${zone === "market" && locked ? "is-locked" : ""}`}
-            style={{ left: `${x}%`, top: `${y}%` }}
-            onClick={() => onOpen(zone)}
-            aria-label={`${ZONE_NAMES[zone]}: ${zoneStatus(game, zone)}`}
-          >
-            <span className="pin-head">
-              <Icon
-                name={zone === "market" && locked ? "lock" : icons[zone]}
-                size={20}
+          )}
+          <g transform="translate(663 975)" className="linh-in-world">
+            <ellipse
+              cx="0"
+              cy="35"
+              rx="23"
+              ry="8"
+              fill="#33402d"
+              opacity=".22"
+            />
+            <path
+              d="M-9 18v20m18-20v20"
+              stroke="#74543a"
+              strokeWidth="8"
+              strokeLinecap="round"
+            />
+            <path
+              d="M-14-3q14-9 28 0l7 29h-42Z"
+              fill="#668346"
+              stroke="#4b6637"
+              strokeWidth="2"
+            />
+            <path
+              d="m-13 1-11 15m37-15 12 6"
+              stroke="#edd4a1"
+              strokeWidth="9"
+              strokeLinecap="round"
+            />
+            <circle cy="-19" r="15" fill="#4b3729" />
+            <ellipse cy="-14" rx="12" ry="14" fill="#e1ac7c" />
+            <path d="M-9-22q10 3 20 0" stroke="#4b3729" strokeWidth="4" />
+            <ellipse
+              cy="-26"
+              rx="26"
+              ry="7"
+              fill="#d6ac66"
+              stroke="#a08147"
+              strokeWidth="2"
+            />
+            <path d="M-16-28q-1-22 15-22t17 22" fill="#edc788" />
+            <path d="M-15-30q17 6 31 0" stroke="#b7794e" strokeWidth="4" />
+          </g>
+          {game.milestones.festival && (
+            <>
+              <Villager x={388} y={1058} shirt="#ba8254" hat />
+              <Villager x={598} y={1085} shirt="#dbbc73" />
+            </>
+          )}
+          {game.milestones.feast && (
+            <g>
+              <path
+                d="m450 1030 157 29-41 31-157-26Z"
+                fill="#f4dcb0"
+                stroke="#a5784d"
+                strokeWidth="4"
               />
-              {current === zone && <span className="target-dot" />}
+              <path
+                d="M423 1067v33m142-14v34"
+                stroke="#906442"
+                strokeWidth="9"
+              />
+              <ellipse cx="492" cy="1063" rx="23" ry="8" fill="#fff4de" />
+              <ellipse cx="548" cy="1070" rx="19" ry="7" fill="#e4a76c" />
+            </g>
+          )}
+          {game.milestones.festival && (
+            <g className="festival-lights">
+              <path
+                d="M240 420q272 250 651 59"
+                stroke="#7d5934"
+                fill="none"
+                strokeWidth="4"
+              />
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <g
+                  key={i}
+                  transform={`translate(${265 + i * 81} ${453 + Math.sin((i / 7) * Math.PI) * 87})`}
+                >
+                  <circle r="65" fill="url(#lamp)" opacity={night ? 1 : 0.15} />
+                  <path d="M0-4v22" stroke="#8f683d" strokeWidth="3" />
+                  <rect
+                    x="-13"
+                    y="8"
+                    width="26"
+                    height="35"
+                    rx="10"
+                    fill={i % 2 ? "#f0a255" : "#f7d77a"}
+                  />
+                  <path
+                    d="M-10 11h20M-10 39h20"
+                    stroke="#be6e37"
+                    strokeWidth="3"
+                  />
+                </g>
+              ))}
+            </g>
+          )}
+        </svg>
+        {sites.map((site) => (
+          <button
+            key={site.id}
+            className={`map-pin pin-${site.id} ${target === site.id ? "quest-target" : ""} ${site.id === "market" && !game.milestones.market ? "unopened" : ""}`}
+            style={{ left: `${site.x}%`, top: `${site.y}%` }}
+            aria-label={`${ZONE_NAMES[site.id]}: ${zoneStatus(game, site.id)}`}
+            onClick={() => onOpen(site.id)}
+          >
+            <span className="pin-icon">
+              <Icon name={site.icon} size={19} />
+              {target === site.id && <i className="target-dot">!</i>}
             </span>
             <span className="pin-label">
-              <b>{ZONE_NAMES[zone]}</b>
-              <span>{zoneStatus(game, zone)}</span>
+              {site.id === "house"
+                ? "Nhà"
+                : site.id === "water"
+                  ? !game.waterFixed
+                    ? "Sửa ống nước"
+                    : `${game.water}% nước`
+                  : site.id === "coop"
+                    ? game.coop.status === "hungry"
+                      ? "Gà đang đói"
+                      : game.coop.status === "fed"
+                        ? "Đang ấp trứng"
+                        : "Nhặt trứng"
+                    : night
+                      ? "Hội mùa"
+                      : game.milestones.market
+                        ? "Giao đơn"
+                        : "Linh đang đợi"}
             </span>
           </button>
         ))}
-        <div className="map-coordinates">
-          GV · 01 <span>Chạm để khám phá</span>
-        </div>
+        {game.plots.map((p, i) => (
+          <button
+            key={p.id}
+            className={`plot-hit ${p.state} ${target === "field" && (p.state === "ready" || !game.plots.some((q) => q.state === "ready")) ? "plot-target" : ""}`}
+            style={{ left: `${beds[i].x}%`, top: `${beds[i].y}%` }}
+            aria-label={`Luống ${p.id}: ${CROPS[p.crop].name}, ${p.state === "ready" ? "thu hoạch" : p.state === "empty" ? "gieo hạt" : "đang lớn"}`}
+            onClick={() =>
+              p.state === "ready"
+                ? act({ type: "HARVEST", plotId: p.id })
+                : onOpen("field", p.id)
+            }
+          >
+            <span>
+              {p.state === "ready" ? (
+                <Icon name="bag" size={19} />
+              ) : p.state === "empty" ? (
+                "+"
+              ) : p.watered ? (
+                <Icon name="check" size={17} />
+              ) : (
+                <Icon name="water" size={18} />
+              )}
+            </span>
+          </button>
+        ))}
+        <button
+          className="field-sign"
+          onClick={() => onOpen("field")}
+          aria-label={`${ZONE_NAMES.field}: ${zoneStatus(game, "field")}`}
+        >
+          Vườn của ông <Icon name="arrow" size={13} />
+        </button>
+        {feedback?.ok &&
+          feedback.reward &&
+          !["house"].includes(feedback.zone) && (
+            <div
+              key={feedback.id}
+              className={`world-reward reward-${feedback.zone || "field"}`}
+              aria-hidden="true"
+            >
+              {feedback.reward.split(" · ")[0]}
+            </div>
+          )}
+        <div className="butterfly b-one" aria-hidden="true" />
+        <div className="butterfly b-two" aria-hidden="true" />
+        {rain && <div className="rain" aria-hidden="true" />}
+        {night && (
+          <div className="fireflies" aria-hidden="true">
+            {Array.from({ length: 12 }, (_, i) => (
+              <i
+                key={i}
+                style={{
+                  left: `${12 + ((i * 17) % 80)}%`,
+                  top: `${30 + ((i * 13) % 50)}%`,
+                  animationDelay: `${i * 0.35}s`,
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
-    </section>
+    </div>
   );
 }

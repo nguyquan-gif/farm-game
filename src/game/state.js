@@ -1,6 +1,7 @@
+import { CROPS } from "../data/crops.js";
 export const SAVE_KEY = "green_valley_save";
 export const LEGACY_KEY = "green_valley_v4_save";
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 export const MAX_ENERGY = 5;
 export const GROW_TIME = 120_000;
 export const EGG_TIME = 120_000;
@@ -16,6 +17,13 @@ export function createInitialState() {
     seeds: 4,
     veg: 0,
     eggs: 0,
+    tomatoes: 0,
+    flowers: 0,
+    deliveredOrders: [],
+    daily: { harvest: false, care: false, trade: false },
+    dailyRewardDay: 0,
+    festivalDay: 0,
+    stats: { harvests: 0, deliveries: 0 },
     water: 50,
     feed: 60,
     waterFixed: false,
@@ -24,8 +32,8 @@ export function createInitialState() {
     reputation: 10,
     coop: { status: "hungry", readyAt: 0 },
     plots: [
-      { id: 1, state: "ready", readyAt: 0, watered: true },
-      { id: 2, state: "empty", readyAt: 0, watered: false },
+      { id: 1, state: "ready", readyAt: 0, watered: false, crop: "greens" },
+      { id: 2, state: "empty", readyAt: 0, watered: false, crop: "greens" },
     ],
     milestones: {
       harvest: false,
@@ -34,6 +42,13 @@ export function createInitialState() {
       egg: false,
       order: false,
       market: false,
+      home: false,
+      expansion: false,
+      tomato: false,
+      specialOrder: false,
+      flowers: false,
+      feast: false,
+      festival: false,
     },
     soundOn: true,
     musicOn: false,
@@ -52,7 +67,7 @@ export function normalizeSave(raw) {
   if (raw.version && raw.version > SCHEMA_VERSION)
     throw new Error("Newer save version");
   const initial = createInitialState(),
-    legacy = raw.version !== SCHEMA_VERSION,
+    legacy = !raw.version || raw.version < 5,
     state = { ...initial };
   for (const key of [
     "day",
@@ -63,6 +78,10 @@ export function normalizeSave(raw) {
     "seeds",
     "veg",
     "eggs",
+    "tomatoes",
+    "flowers",
+    "dailyRewardDay",
+    "festivalDay",
     "water",
     "feed",
     "chickens",
@@ -92,16 +111,15 @@ export function normalizeSave(raw) {
   ])
     if (typeof raw[key] === "boolean") state[key] = raw[key];
   if (Array.isArray(raw.plots) && raw.plots.length)
-    state.plots = raw.plots
-      .slice(0, 3)
-      .map((p, i) => ({
-        id: i + 1,
-        state: ["empty", "growing", "ready"].includes(p?.state)
-          ? p.state
-          : "empty",
-        readyAt: Number.isFinite(p?.readyAt) ? Math.max(0, p.readyAt) : 0,
-        watered: p?.watered === true,
-      }));
+    state.plots = raw.plots.slice(0, 3).map((p, i) => ({
+      id: i + 1,
+      state: ["empty", "growing", "ready"].includes(p?.state)
+        ? p.state
+        : "empty",
+      readyAt: Number.isFinite(p?.readyAt) ? Math.max(0, p.readyAt) : 0,
+      watered: p?.watered === true,
+      crop: Object.hasOwn(CROPS, p?.crop) ? p.crop : "greens",
+    }));
   if (raw.coop && ["hungry", "fed", "egg-ready"].includes(raw.coop.status))
     state.coop = {
       status: raw.coop.status,
@@ -112,6 +130,7 @@ export function normalizeSave(raw) {
   if (legacy) {
     const step = count(raw.step, 0, 12);
     state.milestones = {
+      ...initial.milestones,
       harvest: step > 0 || state.veg > 0,
       repair: state.waterFixed,
       feed: step > 3 || state.eggs > 0,
@@ -123,6 +142,26 @@ export function normalizeSave(raw) {
   } else
     for (const key of Object.keys(state.milestones))
       state.milestones[key] = raw.milestones?.[key] === true;
+  state.milestones.home = state.houseFixed;
+  state.milestones.expansion = state.plots.length >= 3;
+  state.deliveredOrders = Array.isArray(raw.deliveredOrders)
+    ? [
+        ...new Set(
+          raw.deliveredOrders.filter((x) =>
+            ["linh", "binh", "mai"].includes(x),
+          ),
+        ),
+      ]
+    : state.orderDay === state.day
+      ? ["linh"]
+      : [];
+  state.daily = Object.fromEntries(
+    ["harvest", "care", "trade"].map((k) => [k, raw.daily?.[k] === true]),
+  );
+  state.stats = {
+    harvests: count(raw.stats?.harvests, 0),
+    deliveries: count(raw.stats?.deliveries, 0),
+  };
   if (Array.isArray(raw.logs))
     state.logs = raw.logs
       .filter((x) => typeof x === "string")

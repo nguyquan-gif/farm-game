@@ -48,7 +48,7 @@ export default function useGame() {
       if (result.ok && result.state.hapticsOn && Capacitor.isNativePlatform())
         Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
     }
-    if (result.completed) setCelebrate(true);
+    if (result.completed) setCelebrate(result.completed);
     return result;
   }, []);
   useEffect(() => {

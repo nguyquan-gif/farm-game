@@ -30,7 +30,7 @@ export default function SettingsSheet({ game, act, onReset, saveError }) {
         {saveError || "Tiến trình tự lưu trên thiết bị này."}
       </p>
       <p className="quiet-note">
-        Green Valley Farm · Android Alpha 0.1.0
+        Green Valley Farm · Android Alpha 0.2.0
         <br />
         Không cần mạng để chăm nông trại.
       </p>

@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
 import Icon from "../components/Icon.jsx";
+import Produce from "../components/Produce.jsx";
+import LinhNote from "../components/LinhNote.jsx";
+import OrderCard from "../components/OrderCard.jsx";
 import { MISSIONS } from "../data/missions.js";
+import { CROPS, cropUnlocked } from "../data/crops.js";
+import {
+  FIRST_ORDER,
+  SPECIAL_ORDER,
+  FEAST_ORDER,
+  dailyOrders,
+} from "../data/orders.js";
 import { missionIndex } from "../game/engine.js";
 function Countdown({ until }) {
   const [now, setNow] = useState(Date.now());
@@ -15,186 +25,237 @@ function Countdown({ until }) {
     </span>
   );
 }
-function Action({
-  children,
-  type,
-  act,
-  plotId,
-  disabled = false,
-  secondary = false,
-}) {
+function Action({ children, type, act, secondary = false, disabled = false }) {
   return (
     <button
       className={secondary ? "secondary-button" : "primary-button"}
       disabled={disabled}
-      onClick={() => act({ type, plotId })}
+      onClick={() => act({ type })}
     >
       {children}
     </button>
   );
 }
-export default function ZoneSheet({ zone, game, act, onOpen }) {
+export default function ZoneSheet({ zone, game, act, onOpen, focusPlot }) {
   const index = missionIndex(game),
     mission = MISSIONS[index];
+  const [selectedCrop, setSelectedCrop] = useState(
+    mission?.flag === "tomato"
+      ? "tomato"
+      : mission?.flag === "flowers"
+        ? "sunflower"
+        : "greens",
+  );
   return (
     <>
-      {mission?.target === zone && (
-        <div className="story-note">
-          <Icon name="book" size={20} />
-          <p>{mission.story}</p>
-        </div>
-      )}
+      {mission?.target === zone && <LinhNote>{mission.story}</LinhNote>}
       {zone === "field" && (
         <>
           <div className="stock-line">
             <span>
-              <Icon name="leaf" size={18} />
+              <Produce kind="seeds" size={23} />
               {game.seeds} túi hạt
             </span>
             <span>
-              <Icon name="water" size={18} />
+              <Icon name="water" size={19} />
               {game.water}% nước
             </span>
+            <span>
+              1 thao tác = 1<Icon name="energy" size={14} />
+            </span>
           </div>
-          {game.plots.map((p) => (
-            <div className={`plot-row plot-${p.state}`} key={p.id}>
-              <div className="plot-art">
-                <Icon
-                  name={
-                    p.state === "empty"
-                      ? "leaf"
-                      : p.state === "growing"
-                        ? "leaf"
-                        : "bag"
-                  }
-                  size={30}
-                />
-                <span className="soil-line" />
-              </div>
-              <div className="plot-info">
-                <h3>Luống rau {p.id}</h3>
-                <p>
-                  {p.state === "ready" ? (
-                    "Rau đã xanh, hái thôi!"
-                  ) : p.state === "growing" ? (
-                    <>
-                      {p.watered ? "Đã tưới · " : "Đang lớn · "}
-                      <Countdown until={p.readyAt} />
-                    </>
-                  ) : (
-                    "Đất tơi, sẵn sàng gieo"
-                  )}
+          {game.plots.some((p) => p.state === "empty") &&
+            mission?.flag !== "harvest" && (
+              <>
+                <h3 className="section-label">Hôm nay mình trồng gì?</h3>
+                <div
+                  className="seed-choices"
+                  role="group"
+                  aria-label="Chọn giống cây"
+                >
+                  {Object.entries(CROPS).map(([id, c]) => {
+                    const unlocked = cropUnlocked(game, id);
+                    return (
+                      <button
+                        key={id}
+                        aria-pressed={selectedCrop === id}
+                        className={selectedCrop === id ? "selected" : ""}
+                        disabled={!unlocked}
+                        onClick={() => setSelectedCrop(id)}
+                      >
+                        <Produce kind={id} size={40} />
+                        <b>{c.name}</b>
+                        <small>
+                          {unlocked
+                            ? `${c.seeds} hạt · ${c.time / 60000} phút`
+                            : id === "tomato"
+                              ? "Sửa nhà để mở"
+                              : "Giúp Bình để mở"}
+                        </small>
+                        {!unlocked && <Icon name="lock" size={14} />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="crop-benefit">
+                  {CROPS[selectedCrop].description}. Tưới để thu thêm 1.
                 </p>
-              </div>
-              <Action
-                type={
-                  p.state === "ready"
-                    ? "HARVEST"
-                    : p.state === "empty"
-                      ? "PLANT"
-                      : "WATER"
-                }
-                act={act}
-                plotId={p.id}
-                disabled={p.state === "growing" && p.watered}
+              </>
+            )}
+          <div className="plot-list">
+            {game.plots.map((p) => (
+              <article
+                className={`plot-row plot-${p.state} ${focusPlot === p.id ? "focused-plot" : ""}`}
+                key={p.id}
               >
-                {p.state === "ready"
-                  ? "Hái rau"
-                  : p.state === "empty"
-                    ? "Gieo hạt"
-                    : p.watered
-                      ? "Đã tưới"
-                      : "Tưới"}
-                <small>
-                  1<Icon name="energy" size={13} />
-                </small>
-              </Action>
-            </div>
-          ))}
-          <p className="quiet-note">
-            Rau lớn trong 2 phút. Tưới còn tối đa 1 phút.
-            <br />
-            Sang ngày mới để thu hoạch ngay.
-          </p>
+                <div className="plot-art">
+                  <Produce
+                    kind={p.state === "empty" ? "seeds" : p.crop}
+                    size={44}
+                  />
+                </div>
+                <div className="plot-info">
+                  <h3>
+                    Luống {p.id} ·{" "}
+                    {p.state === "empty" ? "Đất trống" : CROPS[p.crop].name}
+                  </h3>
+                  <p>
+                    {p.state === "ready" ? (
+                      `Hái ${CROPS[p.crop].yield + (p.watered ? 1 : 0)} ${CROPS[p.crop].name.toLowerCase()}`
+                    ) : p.state === "growing" ? (
+                      <>
+                        {p.watered ? "Đã tưới · " : "Cần tưới · "}
+                        <Countdown until={p.readyAt} />
+                      </>
+                    ) : (
+                      `Gieo ${CROPS[selectedCrop].name.toLowerCase()}`
+                    )}
+                  </p>
+                </div>
+                <button
+                  className={
+                    p.state === "ready" ? "primary-button" : "plot-action"
+                  }
+                  disabled={p.state === "growing" && p.watered}
+                  onClick={() =>
+                    act({
+                      type:
+                        p.state === "ready"
+                          ? "HARVEST"
+                          : p.state === "empty"
+                            ? "PLANT"
+                            : "WATER",
+                      plotId: p.id,
+                      crop: p.state === "empty" ? selectedCrop : undefined,
+                    })
+                  }
+                >
+                  {p.state === "ready"
+                    ? "Thu hoạch"
+                    : p.state === "empty"
+                      ? "Gieo"
+                      : p.watered
+                        ? "Đang lớn"
+                        : "Tưới"}
+                </button>
+              </article>
+            ))}
+          </div>
           {game.milestones.market && game.plots.length < 3 && (
             <Action type="UPGRADE_FIELD" act={act} secondary>
               Mở luống thứ 3 · 70 xu + 1 năng lượng
             </Action>
           )}
+          {game.plots.some((p) => p.state === "growing") && (
+            <button className="text-button" onClick={() => onOpen("rest")}>
+              <Icon name="moon" size={17} />
+              Nghỉ sang ngày mới để cây lớn ngay
+              <Icon name="arrow" size={15} />
+            </button>
+          )}
           <button className="text-button" onClick={() => onOpen("supplies")}>
-            Mua hạt hoặc nhận giúp đỡ
+            Mua hạt hoặc nhận quà hàng xóm
             <Icon name="arrow" size={16} />
           </button>
         </>
       )}
       {zone === "coop" && (
         <>
-          <div className={`zone-hero coop-hero ${game.coop.status}`}>
-            <Icon name="chicken" size={76} />
-            {game.coop.status === "egg-ready" && <Icon name="egg" size={34} />}
-            <h3>
+          <div className="scene-window coop-window">
+            <span>
               {game.coop.status === "hungry"
-                ? "Hai chiếc bụng nhỏ đang đói"
+                ? "Mơ & Mận đang đói"
                 : game.coop.status === "fed"
-                  ? "Đàn gà đang nghỉ sau bữa ăn"
-                  : "Có trứng trong ổ rơm!"}
-            </h3>
-            <p>
-              {game.coop.status === "fed" ? (
-                <>
-                  Trứng sẵn sàng sau <Countdown until={game.coop.readyAt} />
-                </>
-              ) : game.coop.status === "hungry" ? (
-                "Cho ăn, chờ một chút, rồi nhận trứng tươi."
-              ) : (
-                "Chạm để cất trứng vào giỏ của bạn."
-              )}
-            </p>
+                  ? "Một giấc ngủ sau bữa ăn"
+                  : "Có quà trong ổ rơm"}
+            </span>
           </div>
           <div className="stock-line">
-            <span>Thức ăn {game.feed}%</span>
-            <span>{game.eggs} trứng trong giỏ</span>
+            <span>
+              <Icon name="chicken" size={19} />
+              Thức ăn {game.feed}%
+            </span>
+            <span>
+              <Produce kind="eggs" size={23} />
+              {game.eggs} trứng trong giỏ
+            </span>
           </div>
           {game.coop.status === "hungry" ? (
             <Action type="FEED" act={act}>
-              Cho gà ăn · 15% thức ăn + 1 năng lượng
+              Cho Mơ & Mận ăn · 1 năng lượng
             </Action>
           ) : game.coop.status === "egg-ready" ? (
             <Action type="COLLECT" act={act}>
               Nhặt {game.chickens} trứng · 1 năng lượng
             </Action>
           ) : (
-            <button className="primary-button" onClick={() => onOpen("rest")}>
-              Sang ngày mới, nhận trứng
-              <Icon name="moon" size={18} />
-            </button>
+            <>
+              <p className="time-note">
+                <Icon name="egg" size={22} />
+                Trứng sẵn sàng sau <Countdown until={game.coop.readyAt} />
+              </p>
+              <button className="primary-button" onClick={() => onOpen("rest")}>
+                Nghỉ sang ngày mới, nhận trứng
+                <Icon name="moon" size={18} />
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => onOpen("field")}
+              >
+                Chăm vườn trong lúc chờ
+              </button>
+            </>
+          )}
+          <p className="quiet-note">
+            {game.chickens} cô gà · Mỗi bữa dùng 15% thức ăn. Có trứng sau 2
+            phút hoặc vào ngày mới.
+          </p>
+          {game.milestones.market && game.chickens < 4 && (
+            <Action type="UPGRADE_COOP" act={act} secondary>
+              Đón thêm gà · 5 ngọc + 1 năng lượng
+            </Action>
           )}
           <button className="text-button" onClick={() => onOpen("supplies")}>
-            Bổ sung thức ăn miễn phí
+            Nhận thức ăn miễn phí
             <Icon name="arrow" size={16} />
           </button>
         </>
       )}
       {zone === "water" && (
         <>
-          <div className="zone-hero water-hero">
-            <div className="tank-art">
-              <div style={{ height: `${game.water}%` }} />
-              <Icon name="water" size={38} />
+          <div className="scene-window water-window">
+            <span>
+              {game.waterFixed ? "Dòng nước đã nối lại" : "Ống cũ đang rò rỉ"}
+            </span>
+          </div>
+          <div className="resource-meter">
+            <Icon name="water" size={23} />
+            <div>
+              <b>{game.water}% nước trong bể</b>
+              <span>
+                <i style={{ width: `${game.water}%` }} />
+              </span>
             </div>
-            <h3>
-              {!game.waterFixed
-                ? "Một đường ống cần được chăm sóc"
-                : game.water < 20
-                  ? "Bể nước sắp cạn"
-                  : "Dòng nước đã yên bình"}
-            </h3>
-            <p>
-              {game.water}/100% ·{" "}
-              {game.waterFixed
-                ? "Bổ sung 25% mỗi ngày mới"
-                : "Rò rỉ làm giảm lượng nước hồi mỗi đêm"}
-            </p>
           </div>
           {!game.waterFixed && (
             <Action type="REPAIR" act={act}>
@@ -207,148 +268,146 @@ export default function ZoneSheet({ zone, game, act, onOpen }) {
             secondary
             disabled={game.water >= 100}
           >
-            Hứng thêm 30% nước mưa · Miễn phí
+            Hứng thêm 30% nước · Miễn phí
           </Action>
           <p className="quiet-note">
-            Thiếu xu sửa bể? Thu hoạch rau hoặc nhận quà hàng xóm ở Góc tiếp tế.
+            {game.waterFixed
+              ? "Bể hồi 25% mỗi đêm; ngày mưa hồi 40%."
+              : "Ống rò chỉ hồi 10% mỗi đêm. Sửa để hồi 25%."}
+            <br />
+            Tưới một luống dùng 10% nước.
           </p>
         </>
       )}
       {zone === "house" && (
         <>
-          <div className="zone-hero home-hero">
-            <Icon name="home" size={78} />
-            <h3>
+          <div className="scene-window house-window">
+            <span>
               {game.houseFixed
-                ? "Một mái nhà, một mùa xanh"
-                : "Chào mừng bạn trở về nhà"}
-            </h3>
-            <p>Ngày {game.day} · Nơi bắt đầu những điều bình dị.</p>
+                ? "Nơi những mùa xanh bắt đầu"
+                : "Mái nhà nhỏ của ông"}
+            </span>
           </div>
-          <button className="primary-button" onClick={() => onOpen("rest")}>
-            Nghỉ sang ngày mới
-            <Icon name="moon" size={18} />
-          </button>
           {game.milestones.market && !game.houseFixed && (
-            <Action type="UPGRADE_HOUSE" act={act} secondary>
+            <Action type="UPGRADE_HOUSE" act={act}>
               Tu sửa mái nhà · 80 xu + 1 năng lượng
             </Action>
           )}
           {game.houseFixed && (
             <div className="story-letter">
-              <p className="eyebrow">Cuốn nhật ký của ông</p>
+              <p className="eyebrow">Gửi người giữ khu vườn</p>
               <p>
-                “Điều quý nhất của một nông trại không phải mùa bội thu, mà là
-                những người cùng con chăm nó.”
+                “Con không cần làm mọi thứ trong một ngày. Hãy chăm một mầm cây,
+                mời một người bạn. Rồi thung lũng sẽ có mùa xanh của riêng con.”
+              </p>
+              <span>— Ông nội</span>
+              <p className="unlocked-note">
+                <Icon name="check" size={17} />
+                Đã mở giống cà chua trong vườn
               </p>
             </div>
           )}
+          <button className="primary-button" onClick={() => onOpen("rest")}>
+            Nghỉ sang ngày mới
+            <Icon name="moon" size={19} />
+          </button>
         </>
       )}
       {zone === "market" && (
         <>
           {index < 4 ? (
-            <div className="zone-hero">
-              <Icon name="lock" size={64} />
-              <h3>Linh đang chuẩn bị phiên chợ</h3>
-              <p>Hoàn thành bốn nhiệm vụ đầu để mang giỏ nông sản đến đây.</p>
+            <div className="locked-story">
+              <img src="./art/linh-portrait.webp" alt="Linh đợi trước chợ" />
+              <h3>Mình đợi giỏ đầu tiên của cậu.</h3>
+              <p>
+                Chăm vườn và đàn gà trước nhé. Khi có đủ rau, trứng, chúng mình
+                sẽ nấu bữa cơm mở chợ.
+              </p>
               <button
                 className="primary-button"
-                onClick={() => onOpen(MISSIONS[index].target)}
+                onClick={() => onOpen(mission.target)}
               >
-                Tiếp tục nhiệm vụ
-                <Icon name="arrow" size={18} />
+                {mission.action}
+                <Icon name="arrow" size={17} />
               </button>
+            </div>
+          ) : !game.milestones.order ? (
+            <OrderCard
+              order={FIRST_ORDER}
+              game={game}
+              act={act}
+              onOpen={onOpen}
+            />
+          ) : !game.milestones.market ? (
+            <div className="market-ready">
+              <Icon name="market" size={55} />
+              <h3>Khách đầu tiên đang đến!</h3>
+              <p>Bữa cơm đã sẵn sàng. Chúng mình mở phiên chợ thôi.</p>
+              <Action type="OPEN_MARKET" act={act}>
+                Mở phiên chợ · 1 năng lượng
+              </Action>
             </div>
           ) : (
             <>
-              <div className="linh-letter">
-                <span className="linh-avatar" aria-hidden="true">
-                  <svg viewBox="0 0 80 80">
-                    <circle cx="40" cy="40" r="40" fill="#e6c99f" />
-                    <path d="M12 80q0-31 28-31t28 31" fill="#739368" />
-                    <path d="M21 37q-3-31 19-31 25 1 21 38" fill="#5c4934" />
-                    <ellipse cx="40" cy="34" rx="16" ry="20" fill="#f1c499" />
-                    <path
-                      d="M23 29q20-1 28-16l9 15q-1-22-20-21T23 29"
-                      fill="#5c4934"
-                    />
-                    <circle cx="34" cy="34" r="1.5" fill="#674f38" />
-                    <circle cx="47" cy="34" r="1.5" fill="#674f38" />
-                    <path
-                      d="M36 43q5 5 10 0"
-                      stroke="#bd765f"
-                      strokeWidth="2"
-                      fill="none"
-                    />
-                  </svg>
-                </span>
-                <div>
-                  <h3>Linh · Người bạn ở thung lũng</h3>
-                  <p>“Rau từ vườn bạn sẽ làm bữa trưa thơm hơn.”</p>
-                </div>
+              {game.milestones.tomato && !game.milestones.specialOrder && (
+                <OrderCard
+                  order={SPECIAL_ORDER}
+                  type="SPECIAL_ORDER"
+                  game={game}
+                  act={act}
+                  onOpen={onOpen}
+                />
+              )}
+              {game.milestones.flowers && !game.milestones.feast && (
+                <OrderCard
+                  order={FEAST_ORDER}
+                  type="PREPARE_FEAST"
+                  game={game}
+                  act={act}
+                  onOpen={onOpen}
+                />
+              )}
+              {game.milestones.feast && !game.milestones.festival && (
+                <Action type="START_FESTIVAL" act={act}>
+                  Thắp đèn hội mùa · 1 năng lượng
+                  <Icon name="star" size={21} />
+                </Action>
+              )}
+              <div className="section-heading">
+                <h3>Đơn hàng ngày {game.day}</h3>
+                <span>Không có hạn chót</span>
               </div>
-              {!game.milestones.order || game.milestones.market ? (
-                <>
-                  <div className="order-paper">
-                    <p className="eyebrow">Đơn hàng ngày {game.day}</p>
-                    <div>
-                      <span>
-                        <Icon name="leaf" />
-                        Rau xanh
-                      </span>
-                      <b>{Math.min(3, game.veg)}/3</b>
-                    </div>
-                    <div>
-                      <span>
-                        <Icon name="egg" />
-                        Trứng tươi
-                      </span>
-                      <b>{Math.min(1, game.eggs)}/1</b>
-                    </div>
-                    <footer>
-                      <span>Phần thưởng</span>
-                      <strong>70 xu + 1 ngọc</strong>
-                    </footer>
-                  </div>
-                  <Action
-                    type="DELIVER"
-                    act={act}
-                    disabled={game.orderDay === game.day}
-                  >
-                    {game.orderDay === game.day
-                      ? "Đã giao hôm nay"
-                      : "Giao đơn cho Linh · 1 năng lượng"}
-                  </Action>
-                </>
-              ) : (
-                <div className="order-complete">
-                  <Icon name="check" size={36} />
-                  <h3>Giỏ nông sản đã đến nơi!</h3>
-                  <p>Linh đã sẵn sàng mở phiên chợ cùng bạn.</p>
-                </div>
-              )}
-              {!game.milestones.market && game.milestones.order && (
-                <Action type="OPEN_MARKET" act={act}>
-                  Mở phiên chợ · 1 năng lượng
-                  <Icon name="star" size={20} />
-                </Action>
-              )}
-              {game.milestones.market && (
-                <Action type="SELL" act={act} secondary>
-                  Bán nông sản còn lại · 1 năng lượng
-                </Action>
-              )}
+              {dailyOrders(game).map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  game={game}
+                  act={act}
+                  onOpen={onOpen}
+                  done={game.deliveredOrders.includes(order.id)}
+                />
+              ))}
+              <Action type="SELL" act={act} secondary>
+                Bán cải & trứng dư · 1 năng lượng
+              </Action>
+              <p className="quiet-note">
+                Đơn hàng trả tốt hơn. Cà chua và hoa luôn được giữ lại cho hội
+                mùa.
+              </p>
             </>
           )}
         </>
       )}
       {!game.energy && zone !== "house" && (
         <div className="recovery-note">
-          <Icon name="energy" size={18} />
-          <span>Hết năng lượng rồi. Một giấc ngủ sẽ hồi đủ 5.</span>
+          <Icon name="energy" size={22} />
+          <div>
+            <b>Mình nghỉ một chút nhé?</b>
+            <p>Ngày mới hồi đủ 5 năng lượng, hoàn toàn miễn phí.</p>
+          </div>
           <button className="text-button" onClick={() => onOpen("rest")}>
             Nghỉ ngay
+            <Icon name="arrow" size={15} />
           </button>
         </div>
       )}

@@ -1,65 +1,88 @@
-import { MISSIONS } from "../data/missions.js";
+import { CHAPTERS, MISSIONS } from "../data/missions.js";
 import { missionIndex } from "../game/engine.js";
 import Icon from "../components/Icon.jsx";
 export default function StoryScreen({ game, onOpen }) {
   const index = missionIndex(game);
   return (
-    <section className="screen content-screen journal-screen">
+    <section className="content-screen journal-screen">
       <div className="journal-cover">
-        <img src="./farm-diorama.png" alt="Nông trại thu nhỏ giữa thung lũng" />
+        <img src="./art/valley-world.webp" alt="Khu vườn bên suối" />
         <div>
-          <p className="eyebrow">Nhật ký thung lũng</p>
-          <h2>Ngày trở về</h2>
-          <p>Chương 1 · {Math.min(index, 6)}/6 kỷ niệm</p>
+          <p className="eyebrow">NHẬT KÝ THUNG LŨNG</p>
+          <h2>Một nơi để trở về</h2>
+          <p>
+            {index}/{MISSIONS.length} kỷ niệm đã viết
+          </p>
         </div>
       </div>
-      <p className="screen-intro">
-        “Chăm đất bằng sự kiên nhẫn, và đất sẽ trả lại con những mùa xanh.” —
-        Ông nội
+      <p className="journal-intro">
+        Ông để lại một khu vườn. Linh giữ lời hẹn mở lại phiên chợ. Còn bạn đang
+        viết tiếp câu chuyện bằng từng mùa thu hoạch.
       </p>
-      <ol className="mission-list">
-        {MISSIONS.map((m, i) => (
-          <li
-            key={m.flag}
-            className={i < index ? "finished" : i === index ? "current" : ""}
-          >
-            <span className="journal-number">
-              {i < index ? <Icon name="check" size={18} /> : i + 1}
-            </span>
+      {CHAPTERS.map((ch) => (
+        <section className="chapter-section" key={ch.id}>
+          <header>
+            <span>0{ch.id}</span>
             <div>
-              <h3>{m.title}</h3>
-              <p>{m.desc}</p>
-              {i === index && (
-                <button
-                  className="text-button"
-                  onClick={() => onOpen(m.target)}
-                >
-                  {m.action}
-                  <Icon name="arrow" size={16} />
-                </button>
-              )}
+              <p className="eyebrow">Chương {ch.id}</p>
+              <h3>{ch.title}</h3>
+              <p>{ch.subtitle}</p>
             </div>
-          </li>
-        ))}
-      </ol>
-      {game.milestones.market && (
+          </header>
+          <ol className="mission-list">
+            {MISSIONS.slice(ch.start, ch.end).map((m) => {
+              const complete = game.milestones[m.flag],
+                active = MISSIONS[index] === m;
+              return (
+                <li
+                  key={m.flag}
+                  className={complete ? "finished" : active ? "current" : ""}
+                >
+                  <span className="journal-number">
+                    <Icon
+                      name={complete ? "check" : active ? "leaf" : "lock"}
+                      size={16}
+                    />
+                  </span>
+                  <div>
+                    <h4>{m.title}</h4>
+                    <p>{m.desc}</p>
+                    {active && (
+                      <button
+                        className="text-button"
+                        onClick={() => onOpen(m.target)}
+                      >
+                        {m.action}
+                        <Icon name="arrow" size={15} />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ))}
+      {game.milestones.festival && (
         <div className="story-letter">
-          <p className="eyebrow">Chương 2 đã mở</p>
-          <h3>Một mái nhà ấm</h3>
+          <p className="eyebrow">Lời cuối mùa</p>
+          <h3>Thung lũng đã có cậu.</h3>
           <p>
-            Tu sửa mái nhà, mở thêm luống rau và tìm cuốn nhật ký ông để lại.
+            “Điều quý nhất không phải mùa bội thu, mà là những người cùng con
+            chăm nó.”
           </p>
-          <button className="primary-button" onClick={() => onOpen("house")}>
-            Trở về nhà
-            <Icon name="home" size={18} />
-          </button>
+          <span>— Ông nội</span>
+          <p>
+            Hai chương đã khép lại. Vườn vẫn lớn, đơn hàng vẫn đến, và mỗi ngày
+            mới là một lời hẹn.
+          </p>
         </div>
       )}
       <details className="daily-log">
-        <summary>Những việc bạn đã làm</summary>
+        <summary>Những việc gần đây</summary>
         <ul>
           {game.logs.map((log, i) => (
-            <li key={`${i}-${log}`}>{log}</li>
+            <li key={i}>{log}</li>
           ))}
         </ul>
       </details>
